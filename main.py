@@ -7,6 +7,10 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.callbacks import ModelCheckpoint
 import pandas as pd
 
+# Enable mixed precision training
+from tensorflow.keras.mixed_precision import set_global_policy
+set_global_policy('mixed_float16')
+
 # Load the dataset in chunks
 def load_data_in_chunks(file_path, chunk_size=5000):  # Reduce chunk size
     for chunk in pd.read_csv(file_path, chunksize=chunk_size):
@@ -33,8 +37,8 @@ def preprocess_data_generator(file_path, tokenizer, max_sequence_len, batch_size
                     sequences = []  # Reset batch
 
 # Initialize tokenizer and determine max sequence length
-def initialize_tokenizer(file_path, max_sequence_limit=100):  # Limit sequence length
-    tokenizer = Tokenizer()
+def initialize_tokenizer(file_path, max_sequence_limit=50, vocab_size=50000):  # Limit sequence length and vocabulary size
+    tokenizer = Tokenizer(num_words=vocab_size)  # Keep only the top `vocab_size` words
     max_sequence_len = 0
 
     for chunk in load_data_in_chunks(file_path):
@@ -43,7 +47,7 @@ def initialize_tokenizer(file_path, max_sequence_limit=100):  # Limit sequence l
 
         for line in texts:
             token_list = tokenizer.texts_to_sequences([line])[0]
-            max_sequence_len = min(max_sequence_limit, max(max_sequence_len, len(token_list)))  # Limit seq length
+            max_sequence_len = min(max_sequence_limit, max(max_sequence_len, len(token_list)))
 
     return tokenizer, max_sequence_len
 
@@ -54,9 +58,12 @@ file_path = 'archive/stories.csv'
 tokenizer, max_sequence_len = initialize_tokenizer(file_path)
 total_words = len(tokenizer.word_index) + 1
 
+# Debugging output
+print(f"Total words: {total_words}")
+
 # Build the model
 model = Sequential()
-model.add(Embedding(total_words, 50, input_length=max_sequence_len-1))
+model.add(Embedding(total_words, 32, input_length=max_sequence_len-1))  # Smaller embedding dimension
 model.add(SimpleRNN(100, activation='relu'))
 model.add(Dense(total_words, activation='softmax'))
 
@@ -71,7 +78,7 @@ checkpoint_callback = ModelCheckpoint(
 )
 
 # Train the model using the data generator
-batch_size = 512  # Reduce batch size to fit in memory
+batch_size = 64  # Reduce batch size to fit in memory
 steps_per_epoch = 100  # Adjust number of batches per epoch
 
 model.fit(

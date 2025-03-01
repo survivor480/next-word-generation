@@ -172,3 +172,5 @@ cython_debug/
 
 # ignoring the dataset folder
 archive/
+
+*.h5
