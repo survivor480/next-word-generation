@@ -10,7 +10,7 @@ from pandas import SparseDtype
 
 file = open('archive/processed_data.csv')
 stories = []
-num_of_stories = 4
+num_of_stories = 10
 for story in file:
     stories.append(story)
     num_of_stories -= 1
